@@ -35,10 +35,10 @@ class User {
                 let { href, body } = value;
                 let $ = cheerio.load(body);
                 
-                let partialRepos = $('#user-repositories-list')
+                $('#user-repositories-list')
                     .find('li')
                     .filter((_, el) => $(el).attr('itemprop') === 'owns')
-                    .map((_, el) => {
+                    .each((_, el) => {
                         let repo = Object.create(null);
 
                         repo.type = $(el).attr('class').split(' ').slice(-1)[0];
@@ -56,11 +56,8 @@ class User {
                         let updated = $(el).find('relative-time');
                         repo.updated = Date.parse(updated.attr('datetime'));
 
-                        return repo;
-                    })
-                    .get();
-
-                lst = [...lst, ...partialRepos];
+                        lst.push(repo);
+                    });
 
                 let next = $('.pagination').find('.next_page').attr('href');
                 if (next) {
