@@ -1,0 +1,26 @@
+{
+  "name": "gui",
+  "version": "0.0.1",
+  "description": "Git User Inspector",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bsdelf/GUI.git"
+  },
+  "keywords": [
+    "Github"
+  ],
+  "author": "Yanhui Shen",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/bsdelf/GUI/issues"
+  },
+  "homepage": "https://github.com/bsdelf/GUI#readme",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "request": "^2.79.0"
+  }
+}
