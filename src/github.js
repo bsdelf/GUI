@@ -97,9 +97,10 @@ class User {
                 $('.pagehead-actions')
                     .children('li')
                     .each((_, el) => {
-                        let matched = $(el).text().trim().match(/(\w+)\s*(\d+)/);
+                        let matched = $(el).text().trim().match(/(\w+)\s*(\d[\d,]*)/);
                         if (matched) {
                             let [ , name, count ] = matched;
+                            count = Number.parseInt(count.replace(/,/g, ''));
                             repo.stats[name.toLowerCase()] = count;
                         }
                     })
@@ -108,9 +109,10 @@ class User {
                     .children('li')
                     .each((_, el) => {
                         let a = $('a', el);
-                        let matched = a.text().trim().match(/(\d+)\s*(\w+)/);
+                        let matched = a.text().trim().match(/(\d[\d,]*)\s*(\w+)/);
                         if (matched) {
                             let [ , count, name ] = matched;
+                            count = Number.parseInt(count.replace(/,/g, ''));
                             repo.stats[name] = count;
                         }
                     })
