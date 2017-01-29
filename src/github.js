@@ -91,8 +91,7 @@ class User {
                             repo.stats.lang = Object.create(null);
                         }
                         repo.stats.lang[lang] = { percent, color };
-                    })
-                    .get();
+                    });
 
                 $('.pagehead-actions')
                     .children('li')
@@ -103,7 +102,7 @@ class User {
                             count = Number.parseInt(count.replace(/,/g, ''));
                             repo.stats[name.toLowerCase()] = count;
                         }
-                    })
+                    });
 
                 $('.numbers-summary')
                     .children('li')
@@ -115,7 +114,7 @@ class User {
                             count = Number.parseInt(count.replace(/,/g, ''));
                             repo.stats[name] = count;
                         }
-                    })
+                    });
 
                 return repo;
             });
