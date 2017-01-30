@@ -4,6 +4,8 @@ const url = require('url');
 const request = require('request');
 const cheerio = require('cheerio');
 
+const TIMEOUT = 1000 * 5;
+
 class User {
     constructor(user) {
         this._user = user;
@@ -124,7 +126,12 @@ class User {
 function get(href) {
     return new Promise((resolve, reject) => {
         console.log('GET', href);
-        request(href, (error, response, body) => {
+        let options = {
+            uri: href,
+            method: 'GET',
+            timeout: TIMEOUT
+        }
+        request(options, (error, response, body) => {
             if (error) {
                 return reject(error);
             }
