@@ -123,24 +123,39 @@ class User {
     }
 };
 
-function get(href) {
+function get(href, retryCount = 10) {
     return new Promise((resolve, reject) => {
-        console.log('GET', href);
-        let options = {
-            uri: href,
-            method: 'GET',
-            timeout: TIMEOUT
+
+        retry();
+
+        function retry() {
+            console.log('GET', href);
+
+            let options = {
+                uri: href,
+                method: 'GET',
+                timeout: TIMEOUT
+            }
+
+            request(options, (error, response, body) => {
+                if (error) {
+                    if (--retryCount > 0) {
+                        console.log(error);
+                        return retry();
+                    }
+                    return reject(error);
+                }
+                if (response.statusCode != 200) {
+                    if (--retryCount > 0) {
+                        console.log('Bad status code:', response.statusCode);
+                        return retry();
+                    }
+                    return reject(response.statusCode);
+                }
+                console.log('>>>', href);
+                resolve({ href, body });
+            });
         }
-        request(options, (error, response, body) => {
-            if (error) {
-                return reject(error);
-            }
-            if (response.statusCode != 200) {
-                return reject(response.statusCode);
-            }
-            console.log('>>>', href);
-            resolve({ href, body });
-        });
     });
 }
 
