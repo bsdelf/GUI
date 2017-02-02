@@ -18,8 +18,18 @@ class User {
                 let promiseLst = lst.map(repo => {
                     let repoHref = url.resolve(href, repo.href);
                     return this.getRepoStats(repoHref, repo);
-                })
+                });
                 return Promise.all(promiseLst);
+                /*
+                return lst
+                    .map(repo => {
+                        let repoHref = url.resolve(href, repo.href);
+                        return this.getRepoStats.bind(this, repoHref, repo);
+                    })
+                    .reduce((acc, val) => {
+                        return acc.then(val);
+                    }, Promise.resolve());
+                */
             });
     }
 
@@ -48,6 +58,11 @@ class User {
                         let name = $(el).find('a').filter((_, a) => $(a).attr('itemprop') === 'name codeRepository');
                         repo.href = name.attr('href');
                         repo.name = name.text().trim();
+
+                        let forked = name.parent().next();
+                        if (forked.text().trim().startsWith('Forked from')) {
+                            repo.upstream = forked.find('a').attr('href');
+                        }
 
                         let desc = $(el).find('p').filter((_, p) => $(p).attr('itemprop') === 'description');
                         repo.desc = desc.text().trim();
@@ -135,7 +150,7 @@ function get(href, retryCount = 10) {
                 uri: href,
                 method: 'GET',
                 timeout: TIMEOUT
-            }
+            };
 
             request(options, (error, response, body) => {
                 if (error) {
