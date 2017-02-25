@@ -1,13 +1,17 @@
 'use strict';
 
+const fs = require('fs');
 const { User } = require('./github.js');
 
-let user = new User('bsdelf');
+let name = 'bsdelf';
 
-user.getRepos()
+new User(name)
+    .getRepos()
     .then(repos => {
-        console.log(JSON.stringify(repos, undefined, 4));
+        let text = JSON.stringify(repos, undefined, 4)
+        console.log(text);
+        //fs.writeFileSync(`${name}.json`, text);
     })
     .catch(reason => {
-        console.log(reason);
+        console.log('FATAL', reason);
     });
