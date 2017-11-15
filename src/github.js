@@ -1,179 +1,105 @@
-'use strict';
-
-const url = require('url');
-const request = require('request');
-const cheerio = require('cheerio');
+import url from 'url';
+import cheerio from 'cheerio';
+import request from 'request-promise-native';
 
 const TIMEOUT = 1000 * 5;
 
-class User {
-    constructor(user) {
-        this._user = user;
-    }
-
-    getRepos() {
-        return this.getRepoList()
-            .then(value => {
-                let { href, lst } = value;
-                let promiseLst = lst.map(repo => {
-                    let repoHref = url.resolve(href, repo.href);
-                    return this.getRepoStats(repoHref, repo);
-                });
-                return Promise.all(promiseLst);
-                /*
-                return lst
-                    .map(repo => {
-                        let repoHref = url.resolve(href, repo.href);
-                        return this.getRepoStats.bind(this, repoHref, repo);
-                    })
-                    .reduce((acc, val) => {
-                        return acc.then(val);
-                    }, Promise.resolve());
-                */
-            });
-    }
-
-    getRepoList(href, lst) {
-        if (!href) {
-            href = `https://github.com/${this._user}?tab=repositories`;
-        }
-
-        if (!lst) {
-            lst = [];
-        }
-
-        return get(href)
-            .then(value => {
-                let { href, body } = value;
-                let $ = cheerio.load(body);
-                
-                $('#user-repositories-list')
-                    .find('li')
-                    .filter((_, el) => $(el).attr('itemprop') === 'owns')
-                    .each((_, el) => {
-                        let repo = Object.create(null);
-
-                        repo.type = $(el).attr('class').split(' ').slice(-1)[0];
-
-                        let name = $(el).find('a').filter((_, a) => $(a).attr('itemprop') === 'name codeRepository');
-                        repo.href = name.attr('href');
-                        repo.name = name.text().trim();
-
-                        let forked = name.parent().next();
-                        if (forked.text().trim().startsWith('Forked from')) {
-                            repo.upstream = forked.find('a').attr('href');
-                        }
-
-                        let desc = $(el).find('p').filter((_, p) => $(p).attr('itemprop') === 'description');
-                        repo.desc = desc.text().trim();
-
-                        let lang = $(el).find('span').filter((_, span) => $(span).attr('itemprop') === 'programmingLanguage');
-                        repo.lang = lang.text().trim();
-
-                        let updated = $(el).find('relative-time');
-                        repo.updated = Date.parse(updated.attr('datetime'));
-
-                        lst.push(repo);
-                    });
-
-                let next = $('.pagination').find('.next_page').attr('href');
-                if (next) {
-                    href = url.resolve(href, next);
-                    return this.getRepoList(href, lst);
-                }
-
-                return { href, lst };
-            });
-    }
-
-    getRepoStats(href, repo) {
-        if (!repo.stats) {
-            repo.stats = Object.create(null);
-        }
-
-        return get(href)
-            .then(value => {
-                let { href, body } = value;
-                let $ = cheerio.load(body);
-
-                $('.repository-lang-stats-numbers')
-                    .children('li')
-                    .each((_, el) => {
-                        let lang = $('.lang', el).text().trim();
-                        let percent = $('.percent', el).text().trim();
-                        percent = percent.substr(0, percent.length - 1);
-                        percent = Number.parseFloat(percent) / 100;
-                        let color = $('.language-color', el).attr('style').split(':')[1];
-                        if (!repo.stats.lang) {
-                            repo.stats.lang = Object.create(null);
-                        }
-                        repo.stats.lang[lang] = { percent, color };
-                    });
-
-                $('.pagehead-actions')
-                    .children('li')
-                    .each((_, el) => {
-                        let matched = $(el).text().trim().match(/(\w+)\s*(\d[\d,]*)/);
-                        if (matched) {
-                            let [ , name, count ] = matched;
-                            count = Number.parseInt(count.replace(/,/g, ''));
-                            repo.stats[name.toLowerCase()] = count;
-                        }
-                    });
-
-                $('.numbers-summary')
-                    .children('li')
-                    .each((_, el) => {
-                        let a = $('a', el);
-                        let matched = a.text().trim().match(/(\d[\d,]*)\s*(\w+)/);
-                        if (matched) {
-                            let [ , count, name ] = matched;
-                            count = Number.parseInt(count.replace(/,/g, ''));
-                            repo.stats[name] = count;
-                        }
-                    });
-
-                return repo;
-            });
-    }
-};
-
-function get(href, retryCount = 10) {
-    return new Promise((resolve, reject) => {
-
-        retry();
-
-        function retry() {
+export async function fetchPage(href, maxTrial = 10) {
+    const options = {
+        uri: href,
+        method: 'GET',
+        timeout: TIMEOUT
+    };
+    for (let iTrial = 1; iTrial <= maxTrial; ++iTrial) {
+        try {
             console.log('GET', href);
-
-            let options = {
-                uri: href,
-                method: 'GET',
-                timeout: TIMEOUT
-            };
-
-            request(options, (error, response, body) => {
-                if (error) {
-                    if (--retryCount > 0) {
-                        console.log(error);
-                        return retry();
-                    }
-                    return reject(error);
-                }
-                if (response.statusCode != 200) {
-                    if (--retryCount > 0) {
-                        console.log('Bad status code:', response.statusCode);
-                        return retry();
-                    }
-                    return reject(response.statusCode);
-                }
-                console.log('>>>', href);
-                resolve({ href, body });
-            });
+            return await request(options);
+        } catch (err) {
+            console.log(err);
+            console.log(`Failed to fetch ${href}, trial: ${iTrial}/${maxTrial}`);
         }
-    });
+    }
+    throw new Error('Hit max trial');
 }
 
-module.exports = {
-    User
+export async function fetchRepos(user) {
+    const lst = [];
+    let href = `https://github.com/${user}?tab=repositories`;
+    do {
+        const body = await fetchPage(href);
+        const $ = cheerio.load(body);
+        $('#user-repositories-list')
+            .find('li')
+            .each((_, el) => {
+                if ($(el).attr('itemprop') !== 'owns') {
+                    return;
+                }
+                const repo = {};
+                repo.type = $(el).attr('class').split(' ').slice(-1)[0];
+                const name = $(el).find('a').filter((_, a) => $(a).attr('itemprop') === 'name codeRepository');
+                repo.href = url.resolve(href, name.attr('href'));
+                repo.name = name.text().trim();
+                const forked = name.parent().next();
+                if (forked.text().trim().startsWith('Forked from')) {
+                    repo.upstream = url.resolve(href, forked.find('a').attr('href'));
+                }
+                const desc = $(el).find('p').filter((_, p) => $(p).attr('itemprop') === 'description');
+                repo.desc = desc.text().trim();
+                const lang = $(el).find('span').filter((_, span) => $(span).attr('itemprop') === 'programmingLanguage');
+                repo.lang = lang.text().trim();
+                const updated = $(el).find('relative-time');
+                repo.updated = Date.parse(updated.attr('datetime'));
+                lst.push(repo);
+            });
+        const next = $('.pagination').find('.next_page').attr('href');
+        href = next ? url.resolve(href, next) : null;
+    } while (href);
+    return lst;
+}
+
+export async function fetchRepoStats(href) {
+    const stats = {};
+    const body = await fetchPage(href);
+    const $ = cheerio.load(body);
+    $('.repository-lang-stats-numbers')
+        .children('li')
+        .each((_, el) => {
+            let lang = $('.lang', el).text().trim();
+            let percent = $('.percent', el).text().trim();
+            percent = percent.substr(0, percent.length - 1);
+            percent = Number.parseFloat(percent) / 100;
+            let color = $('.language-color', el).attr('style').split(':')[1];
+            if (!stats.lang) {
+                stats.lang = Object.create(null);
+            }
+            stats.lang[lang] = { percent, color };
+        });
+    $('.pagehead-actions')
+        .children('li')
+        .each((_, el) => {
+            let matched = $(el).text().trim().match(/(\w+)\s*(\d[\d,]*)/);
+            if (matched) {
+                let [ , name, count ] = matched;
+                count = Number.parseInt(count.replace(/,/g, ''));
+                stats[name.toLowerCase()] = count;
+            }
+        });
+    $('.numbers-summary')
+        .children('li')
+        .each((_, el) => {
+            let a = $('a', el);
+            let matched = a.text().trim().match(/(\d[\d,]*)\s*(\w+)/);
+            if (matched) {
+                let [ , count, name ] = matched;
+                count = Number.parseInt(count.replace(/,/g, ''));
+                stats[name] = count;
+            }
+        });
+    return stats;
+}
+
+export default {
+    fetchPage,
+    fetchRepos,
+    fetchRepoStats
 };

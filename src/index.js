@@ -1,17 +1,21 @@
-'use strict';
+import fs from 'fs';
+import GitHub from './github';
 
-const fs = require('fs');
-const { User } = require('./github.js');
+async function main() {
+    const name = 'bsdelf';
+    const repos = await GitHub.fetchRepos(name);
+    console.log(repos);
+    for (const repo of repos) {
+        const stats = await GitHub.fetchRepoStats(repo.href);
+        console.log(stats);
+    }
+}
 
-let name = 'bsdelf';
+(async () => {
+    try {
+        await main();
+    } catch (err) {
+        console.log(err);
+    }
+})();
 
-new User(name)
-    .getRepos()
-    .then(repos => {
-        let text = JSON.stringify(repos, undefined, 4)
-        console.log(text);
-        //fs.writeFileSync(`${name}.json`, text);
-    })
-    .catch(reason => {
-        console.log('FATAL', reason);
-    });
