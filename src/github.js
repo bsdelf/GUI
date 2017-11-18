@@ -57,6 +57,54 @@ export async function fetchRepos(user) {
     return lst;
 }
 
+async function fetchConnection(user, tab) {
+    const connection = [];
+    for (let page = 1; ; ++page) {
+        const href = `https://github.com/${user}?tab=${tab}&page=${page}`;
+        const body = await fetchPage(href);
+        const $ = cheerio.load(body);
+        const items = $('#js-pjax-container .position-relative')
+            .find('.d-table-cell.col-9.v-align-top.pr-3')
+        if (items.length < 1) {
+            break;
+        }
+        items.each((_, el) => {
+            const spans = $('span', el);
+            const name = $(spans[0]).text();
+            const id = $(spans[1]).text();
+            let organization = null;
+            let location = null;
+            $('.octicon', el)
+                .each((_, el) => {
+                    const parents = $(el).parents('.mr-3');
+                    if (parents.length === 1) {
+                        organization = $(parents[0]).text().trim();
+                    } else {
+                        location = $(el)
+                            .parent().contents()
+                            .filter((_, node) => node.nodeType === 3)
+                            .text().trim();
+                    }
+                });
+            connection.push({
+                name,
+                id,
+                organization,
+                location
+            });
+        });
+    }
+    return connection;
+}
+
+export async function fetchFollowers(user) {
+    return fetchConnection(user, 'followers');
+}
+
+export async function fetchFollowing(user) {
+    return fetchConnection(user, 'following');
+}
+
 export async function fetchRepoStats(href) {
     const stats = {};
     const body = await fetchPage(href);
@@ -101,5 +149,7 @@ export async function fetchRepoStats(href) {
 export default {
     fetchPage,
     fetchRepos,
+    fetchFollowers,
+    fetchFollowing,
     fetchRepoStats
 };
